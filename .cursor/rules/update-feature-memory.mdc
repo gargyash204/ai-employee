@@ -1,0 +1,40 @@
+---
+description: Keep .cursor/memory feature memories updated after every feature change
+alwaysApply: true
+---
+
+# Update feature memory after every change
+
+After implementing, modifying, or removing any product feature, **update the living memory** before ending the turn.
+
+## Where
+
+- Index: `.cursor/memory/README.md`
+- One file per feature: `.cursor/memory/<feature-slug>.md`
+
+## When
+
+Update memory when you:
+
+- Add, change, or remove APIs, entities, migrations, or UI for a feature
+- Change invariants, validation, or out-of-scope boundaries
+- Ship a new feature (create a new memory file + index row)
+
+Skip only for pure refactors with no behavioral/API/path change, or docs-only edits that do not affect agent context.
+
+## What to write
+
+Keep each memory short and actionable:
+
+1. **Purpose** — what the feature does for the user
+2. **Key paths** — backend module/repo + frontend components/services
+3. **APIs** — method, path, auth, response shape notes
+4. **Invariants** — validation, empty states, architecture constraints
+5. **Out of scope** — what must not be added casually
+6. **Last updated** — set to today’s date
+
+Prefer editing the existing memory over re-deriving context from a full codebase scan.
+
+## How to use memory
+
+At the start of feature work, **read the matching `.cursor/memory/*.md` first**. Only open source files for the specific change; do not re-walk the whole feature tree unless memory is missing or clearly stale.

@@ -1,0 +1,27 @@
+---
+alwaysApply: true
+---
+
+When generating code:
+
+- Generate only the files requested.
+
+- Do not modify unrelated files.
+
+- Keep responses concise.
+
+- Prefer extending existing architecture.
+
+- Ask for clarification instead of making architectural changes.
+
+- Never introduce new libraries without being asked.
+
+- Reuse existing utilities whenever possible.
+
+- Keep generated code minimal.
+
+- Avoid overengineering.
+
+- Do not create abstractions until duplication exists.
+
+- Follow the existing folder structure strictly.

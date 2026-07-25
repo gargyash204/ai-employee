@@ -1,0 +1,27 @@
+{
+  "name": "zamp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zamp take-home monorepo",
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "build": "pnpm --filter @zamp/shared build && pnpm --filter @zamp/backend build && pnpm --filter @zamp/frontend build",
+    "build:backend": "pnpm --filter @zamp/backend build",
+    "build:frontend": "pnpm --filter @zamp/frontend build",
+    "build:shared": "pnpm --filter @zamp/shared build",
+    "dev:backend": "pnpm --filter @zamp/backend start:dev",
+    "dev:frontend": "pnpm --filter @zamp/frontend dev",
+    "migration:run": "pnpm --filter @zamp/backend migration:run",
+    "migration:revert": "pnpm --filter @zamp/backend migration:revert",
+    "migration:show": "pnpm --filter @zamp/backend migration:show",
+    "lint": "pnpm -r --if-present lint",
+    "format": "pnpm -r --if-present format",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

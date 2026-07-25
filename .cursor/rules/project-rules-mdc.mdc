@@ -1,0 +1,216 @@
+---
+alwaysApply: true
+---
+
+# AI Runtime Project Rules
+
+## Goal
+
+This project focuses on building a reliable AI runtime, not a feature-rich application.
+
+Always prefer simplicity over abstraction.
+
+Avoid generating unnecessary code.
+
+---
+
+# Architecture
+
+Always follow this architecture.
+
+HTTP Request
+
+↓
+
+Controller
+
+↓
+
+Service
+
+↓
+
+Repository
+
+↓
+
+TypeORM
+
+↓
+
+MySQL
+
+Controllers never access the database.
+
+Controllers never contain business logic.
+
+Services never contain SQL.
+
+Repositories contain all database operations.
+
+---
+
+# Backend Folder Structure
+
+Each business module lives under
+
+modules/
+
+Example
+
+modules/runtime
+
+runtime.controller.ts
+
+runtime.service.ts
+
+runtime.module.ts
+
+runtime.dto.ts
+
+runtime.types.ts
+
+Persistence lives under
+
+repositories/
+
+Each entity gets its own folder.
+
+Example
+
+repositories/runtime
+
+runtime.entity.ts
+
+runtime.repository.ts
+
+runtime.repository.module.ts
+
+Never create a shared entities folder.
+
+---
+
+# Repository Rules
+
+Every repository owns exactly one entity.
+
+Repositories should expose reusable methods.
+
+Use TypeORM Repository API.
+
+Avoid QueryBuilder unless absolutely necessary.
+
+---
+
+# Frontend Rules
+
+Frontend is intentionally simple.
+
+Do not introduce Redux.
+
+Do not introduce Zustand.
+
+Do not introduce React Query.
+
+Use
+
+- React
+- Axios
+- useState
+- useEffect
+
+Only.
+
+Every API call must go through
+
+services/
+
+Never call Axios directly inside components.
+
+---
+
+# Component Rules
+
+Components should stay under approximately 200 lines.
+
+Extract reusable UI.
+
+Prefer composition.
+
+---
+
+# DTO Rules
+
+Every endpoint must validate using DTOs.
+
+Never use any.
+
+---
+
+# API Responses
+
+Always return
+
+{
+  success,
+  data,
+  message
+}
+
+---
+
+# Styling
+
+Use Shadcn defaults.
+
+Avoid unnecessary custom CSS.
+
+---
+
+# Error Handling
+
+Backend should throw HttpExceptions.
+
+Frontend should display user-friendly errors.
+
+---
+
+# Database
+
+Use MySQL.
+
+Use TypeORM.
+
+Use snake_case table names.
+
+Use UUID primary keys unless otherwise specified.
+
+---
+
+# Code Style
+
+Prefer early returns.
+
+Prefer small functions.
+
+Avoid deeply nested if statements.
+
+Write readable code over clever code.
+
+---
+
+# Comments
+
+Do not add comments explaining obvious code.
+
+Only document non-trivial business decisions.
+
+---
+
+# Scope
+
+Do not add extra features unless explicitly requested.
+
+Always optimize for reviewability.
+
+Favor depth over breadth.

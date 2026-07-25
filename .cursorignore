@@ -1,0 +1,18 @@
+# Secrets / env — never expose to Cursor Agent
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Common credential / key material
+**/credentials*.json
+**/*secret*
+**/*.pem
+**/*.key
+!**/*.example.key
+
+# Local overrides that may contain secrets
+.env.local
+.env.*.local
