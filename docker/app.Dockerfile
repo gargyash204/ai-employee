@@ -4,7 +4,8 @@
 # Railway builds the final stage by default.
 
 FROM node:22-alpine AS base
-RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
+# npm global install is more reliable in CI than Corepack (Corepack is absent on some Node images).
+RUN npm install -g pnpm@10.33.2
 WORKDIR /app
 
 FROM base AS backend-deps

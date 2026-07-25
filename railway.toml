@@ -1,3 +1,4 @@
+# Single combined App service (nginx SPA + Nest). Do not deploy apps/frontend or apps/backend separately.
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "docker/app.Dockerfile"

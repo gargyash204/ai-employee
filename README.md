@@ -77,7 +77,7 @@ The frontend calls `GET /health` and shows **Backend Connected** when the API re
 
 ## Deploy (Railway demo)
 
-Minimal public demo: one app container + Railway MySQL + [Langfuse Cloud](https://cloud.langfuse.com) (observability / View Trace). See [docs/deploy-railway.md](./docs/deploy-railway.md).
+Minimal public demo: **one** App service from `docker/app.Dockerfile` + Railway MySQL + [Langfuse Cloud](https://cloud.langfuse.com). Do not deploy `apps/frontend` and `apps/backend` as separate Railway services. See [docs/deploy-railway.md](./docs/deploy-railway.md).
 
 ## Docs
 
