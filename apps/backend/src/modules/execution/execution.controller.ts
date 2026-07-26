@@ -55,14 +55,4 @@ export class ExecutionController {
       message: 'Execution resumed — running in the background',
     };
   }
-
-  @Post(':id/cancel')
-  async cancel(@Param('id', ParseUUIDPipe) id: string) {
-    const data = await this.executionService.cancel(id);
-    return {
-      success: true,
-      data,
-      message: 'Execution cancelled',
-    };
-  }
 }

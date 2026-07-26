@@ -10,6 +10,30 @@ For current system shape and user flow, see [docs/architecture.md](./docs/archit
 
 ---
 
+## Notes (current scope & constraints)
+
+These are deliberate demo boundaries—not accidental omissions.
+
+**Auth.** Multi-user auth is out of scope for now. Only a single account path exists; the product focus is runtime governance, not identity.
+
+**Rate limits & credits.** App-level rate limiting is out of scope. The demo uses NVIDIA-hosted models with limited infra credits. Excess use can hit provider rate limits or exhaust credits and stop the stack—treat usage as scarce.
+
+**Langfuse lag.** Trace ingestion is eventually consistent. After a run, wait before opening **View Trace**; the UI/API may be ready before Langfuse has the span.
+
+**Version editability.** Only a **Draft** version can be updated. **Published** and **Archived** versions are read-only history.
+
+**Execution polling.** Production create/resume return immediately and the UI polls status. That is intentional for a single-process demo—we are not solving durable queues or multi-instance scale here.
+
+**Paste text, not a document parser.** The original path was full doc parsing + querying (object storage, OCR packages, parse pipelines). That adds infra and maintenance overhead without proving the runtime thesis. Parsing is removed: paste the document text, then query/extract against versioned instructions. Querying a long-running governed job is the same strategy Zamp uses for durable AI work—a small, controllable slice of a larger agent stack (tool-like), with governance, observability, and accountability so humans can see what happened and what to improve.
+
+**AI eval over unit/e2e as the focus.** Instead of centering traditional unit or e2e tests for prompt behaviour, this project treats **AI evaluation as the primary quality gate**—and ships it as a first-class product feature. Versioning, Dataset Manager, and Development Studio exist so users can measure regressions themselves before publish. That same power should be maintained for any AI feature a developer adds: grow a real dataset, run every prompt change through eval, and only promote to production when the suite says behaviour did not break. At scale, “does this prompt change break anything?” is answered by eval on a large dataset—not by brittle string asserts in a CI unit test. Today eval checks a limited surface (semantic pass/fail and related aggregates); it can be extended for users with richer gates—token usage, cost, latency, and similar production metrics—without changing the core loop.
+
+**Model choice.** Calls go through NVIDIA-provided Llama open-source models: cheaper for a demo, and avoids exposing other provider credentials. Those APIs can occasionally time out. Production can swap in a stronger LLM via the existing `AiProvider` boundary. There is **no LLM fallback** on failure yet; adding one (or changing models) is straightforward later.
+
+**PII.** PII redaction/masking is not handled today. That would need another app layer and more setup. Handle before a real production deployment.
+
+---
+
 # The Original Problem
 
 The assignment was intentionally open-ended around AI and document processing.
@@ -108,7 +132,7 @@ Capabilities landed in roughly this order; each step exists because the previous
 | **Development Studio** | Paste document; A/B Draft vs Published; optional regression | Experiment before production |
 | **Dataset Manager** | Q&A cases; immutable run history; semantic scoring | Regression must be measurable, not manual |
 | **Studio ↔ Evaluation split** | Studio triggers runs; `EvaluationService` owns scoring | One scoring path; curation/reports stay in Dataset Manager |
-| **Production Executions** | Published-only jobs; checkpoints; pause / resume / cancel | Testing ≠ production |
+| **Production Executions** | Published-only jobs; checkpoints; pause / resume | Testing ≠ production |
 | **Audit + Langfuse** | Append-only activity feed; optional traces; Overview merge | Accountability + production-style observability |
 | **Overview** | One tab for lifecycle health | Operators need a single source of "what happened" |
 
@@ -290,13 +314,13 @@ Railway optimises for a shareable demo without hosting Langfuse/phpMyAdmin in th
 
 ## Single Worker Execution
 
-All executions currently happen within one backend process (in-request / in-process). There is no Redis/BullMQ/worker fleet.
+All executions run in one backend process (in-process fire-and-forget). Create/resume return immediately; the UI polls until the job settles. There is no Redis/BullMQ/worker fleet.
 
 ### Why
 
 The objective is demonstrating runtime lifecycle rather than distributed execution.
 
-Queues and worker orchestration would significantly increase infrastructure complexity without contributing to the project's central idea.
+Queues and worker orchestration would significantly increase infrastructure complexity without contributing to the project's central idea. Polling is enough for a single-process demo.
 
 ### Production Alternative
 
@@ -313,30 +337,31 @@ Queues and worker orchestration would significantly increase infrastructure comp
 
 - Easy debugging
 - Minimal infrastructure
+- HTTP handlers stay short-lived
 
 **Cons**
 
 - Limited throughput
 - No horizontal scaling
-- Long HTTP timeouts for Studio / Executions
+- Lost in-flight work if the process dies mid-run
 
 ---
 
 ## Synchronous AI Calls
 
-Every AI request is executed synchronously (awaited to completion). Studio returns extraction results before optional background regression finishes; regression itself still runs in-process without a queue.
+Every AI request is executed synchronously (awaited to completion). Studio returns extraction results before optional background regression finishes; production executions and Studio regression both continue in-process without a durable queue (HTTP already returned; clients poll).
 
 ### Why
 
 The project emphasizes governance and observability.
 
-Streaming responses and asynchronous orchestration would add complexity without improving the demonstration.
+Streaming responses and a real worker fleet would add complexity without improving the demonstration. In-process background work is enough to keep HTTP responsive.
 
 ### Production Alternative
 
 - Streaming responses
-- Background workers
-- Async execution
+- Background workers / durable queues
+- Multi-instance async execution
 
 ### Tradeoff
 
@@ -347,8 +372,8 @@ Streaming responses and asynchronous orchestration would add complexity without 
 
 **Cons**
 
-- Higher latency
-- Request timeout pressure on long runs
+- Higher end-to-end latency for long runs
+- Provider request timeouts still surface on individual AI calls
 
 ---
 

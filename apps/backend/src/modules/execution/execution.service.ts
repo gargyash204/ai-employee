@@ -161,10 +161,6 @@ export class ExecutionService {
       throw new BadRequestException('Cannot resume a running execution');
     }
 
-    if (execution.status === ExecutionStatus.Cancelled) {
-      throw new BadRequestException('Cannot resume a cancelled execution');
-    }
-
     if (execution.status === ExecutionStatus.Failed) {
       throw new BadRequestException('Cannot resume a failed execution');
     }
@@ -213,44 +209,6 @@ export class ExecutionService {
     );
 
     this.scheduleRun(updated, version);
-    return this.toDetailResponse(updated, version);
-  }
-
-  async cancel(id: string): Promise<ExecutionDetailResponse> {
-    const execution = await this.getExecutionOrThrow(id);
-
-    if (execution.status === ExecutionStatus.Completed) {
-      throw new BadRequestException('Cannot cancel a completed execution');
-    }
-
-    if (execution.status === ExecutionStatus.Cancelled) {
-      throw new BadRequestException('Execution is already cancelled');
-    }
-
-    if (execution.status === ExecutionStatus.Failed) {
-      throw new BadRequestException('Cannot cancel a failed execution');
-    }
-
-    const updated =
-      (await this.executionRepository.update(execution.id, {
-        status: ExecutionStatus.Cancelled,
-        completedAt: new Date(),
-      })) ?? execution;
-
-    this.logger.log(
-      JSON.stringify({
-        executionId: updated.id,
-        runtimeVersionId: updated.runtimeVersionId,
-        currentStep: updated.currentStep,
-        retryCount: updated.retryCount,
-        success: true,
-        message: 'Execution cancelled',
-      }),
-    );
-
-    const version = await this.versionRepository.findById(
-      updated.runtimeVersionId,
-    );
     return this.toDetailResponse(updated, version);
   }
 

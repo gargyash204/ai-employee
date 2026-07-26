@@ -85,11 +85,6 @@ export class ExecutionOrchestrator {
       }
       current = refreshed;
 
-      if (current.status === ExecutionStatus.Cancelled) {
-        this.logEvent(current, step, false, 'Execution cancelled');
-        return current;
-      }
-
       const existingCheckpoint = checkpoints.find(
         (checkpoint) => checkpoint.step === step,
       );

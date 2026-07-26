@@ -4,17 +4,14 @@ import {
 } from '@/services/execution.service'
 import { ExecutionStatusBadge } from './ExecutionStatusBadge'
 import { ResumeButton } from './ResumeButton'
-import { CancelButton } from './CancelButton'
 
 type ExecutionCardProps = {
   execution: ExecutionSummary
   displayNumber: number
   selected: boolean
   resumeLoading?: boolean
-  cancelLoading?: boolean
   onSelect: () => void
   onResume: () => void
-  onCancel: () => void
 }
 
 function formatTime(iso: string) {
@@ -29,16 +26,10 @@ export function ExecutionCard({
   displayNumber,
   selected,
   resumeLoading,
-  cancelLoading,
   onSelect,
   onResume,
-  onCancel,
 }: ExecutionCardProps) {
   const canResume = execution.status === 'Paused'
-  const canCancel =
-    execution.status === 'Queued' ||
-    execution.status === 'Running' ||
-    execution.status === 'Paused'
 
   return (
     <div
@@ -69,22 +60,11 @@ export function ExecutionCard({
         </p>
       </button>
 
-      {(canResume || canCancel) && (
+      {canResume ? (
         <div className="mt-3 flex gap-2">
-          {canResume ? (
-            <ResumeButton
-              loading={resumeLoading}
-              onClick={onResume}
-            />
-          ) : null}
-          {canCancel ? (
-            <CancelButton
-              loading={cancelLoading}
-              onClick={onCancel}
-            />
-          ) : null}
+          <ResumeButton loading={resumeLoading} onClick={onResume} />
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

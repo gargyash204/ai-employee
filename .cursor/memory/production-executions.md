@@ -15,7 +15,7 @@ Publish a Runtime Version and run durable production jobs against the active Pub
 | `id` | UUID PK |
 | `runtimeId` | FK → runtimes |
 | `runtimeVersionId` | FK → published version used for the job |
-| `status` | `Queued` \| `Running` \| `Paused` \| `Completed` \| `Failed` \| `Cancelled` |
+| `status` | `Queued` \| `Running` \| `Paused` \| `Completed` \| `Failed` |
 | `currentStep` | `ExecutionStep` enum |
 | `document` | input text |
 | `finalOutput` | nullable JSON (set on SaveOutput) |
@@ -41,7 +41,7 @@ Publish a Runtime Version and run durable production jobs against the active Pub
 ### Backend
 - Business: `apps/backend/src/modules/execution/`
   - `execution.controller.ts` — `/executions`
-  - `execution.service.ts` — create/list/get/resume/cancel; `scheduleRun` fires orchestrator in-process after HTTP returns
+  - `execution.service.ts` — create/list/get/resume; `scheduleRun` fires orchestrator in-process after HTTP returns
   - `execution.prompts.ts` — production answer prompt + parse
   - `orchestrator/execution.orchestrator.ts` — stage loop, checkpoint, pause
   - `orchestrator/executors/*` — Queued, Reading, Extract, Answer, Validation, Save
@@ -51,7 +51,7 @@ Publish a Runtime Version and run durable production jobs against the active Pub
 ### Frontend
 - Tab: `RuntimeDetails` → Executions
 - Page: `components/execution/ExecutionPage.tsx` — queues then polls until settled
-- Pieces: `ExecutionForm`, `ExecutionHistory`, `ExecutionCard`, `ExecutionDetails`, `CheckpointTimeline`, `ExecutionStatusBadge`, `ResumeButton`, `CancelButton`
+- Pieces: `ExecutionForm`, `ExecutionHistory`, `ExecutionCard`, `ExecutionDetails`, `CheckpointTimeline`, `ExecutionStatusBadge`, `ResumeButton`
 - API: `services/execution.service.ts` — `pollExecution` exponential backoff (1s → 16s cap)
 - Poll helpers: `services/execution-poll.ts`
 - Check: `services/execution-poll.check.ts`
@@ -63,8 +63,7 @@ Publish a Runtime Version and run durable production jobs against the active Pub
 | POST | `/executions` | `{ runtimeId, document }` → creates `Queued`, returns immediately; run continues in background |
 | GET | `/executions?runtimeId=` | History newest first |
 | GET | `/executions/:id` | Detail + checkpoints (used for polling) |
-| POST | `/executions/:id/resume` | Paused only; marks Running, returns immediately; continues in background |
-| POST | `/executions/:id/cancel` | Keeps existing checkpoints |
+| POST | `/executions/:id/resume` | Paused only; marks Running, increments `retryCount`, returns immediately; continues in background |
 
 Auth required. Response shape: `{ success, data, message }`.
 
@@ -73,7 +72,8 @@ Auth required. Response shape: `{ success, data, message }`.
 - Production never runs Draft versions; requires Published `activeVersionId`.
 - Publish (existing `/runtime/:id/publish`) archives previous Published and sets `activeVersionId`.
 - Orchestrator skips steps that already have checkpoints.
-- AI/step failures → `Paused` (same `currentStep`); resume increments `retryCount`.
+- AI/step failures → `Paused` (same `currentStep`); resume increments `retryCount` (retry = Resume).
+- No cancel — executions run to completion, pause, or fail.
 - Create/resume HTTP handlers do **not** await the full pipeline; frontend polls `GET /executions/:id` until status leaves `Queued`/`Running`.
 - Background runner is in-process (`scheduleRun`); not a durable multi-instance queue.
 - Controllers thin; repositories own TypeORM; AI behind `AiProvider` + `LangfuseService`.
@@ -85,11 +85,11 @@ Auth required. Response shape: `{ success, data, message }`.
 |------|--------|
 | Runtime / execution / published version missing | 404 |
 | No active published version / draft attempt | 400 |
-| Resume completed / running / cancelled | 400 |
-| Cancel completed / already cancelled | 400 |
+| Resume completed / running / failed / not paused | 400 |
 
 ## Out of scope
 
+- Cancel execution
 - Durable queue workers (BullMQ / separate process) — upgrade when multi-instance
 - Semantic validation / LLM-as-judge
 

@@ -11,7 +11,6 @@ export type ExecutionStatus =
   | 'Paused'
   | 'Completed'
   | 'Failed'
-  | 'Cancelled'
 
 export type ExecutionStep =
   | 'Queued'
@@ -108,13 +107,6 @@ export async function pollExecution(
 export async function resumeExecution(id: string) {
   const { data } = await api.post<ApiSuccess<ExecutionDetail>>(
     `/executions/${id}/resume`,
-  )
-  return data.data
-}
-
-export async function cancelExecution(id: string) {
-  const { data } = await api.post<ApiSuccess<ExecutionDetail>>(
-    `/executions/${id}/cancel`,
   )
   return data.data
 }
