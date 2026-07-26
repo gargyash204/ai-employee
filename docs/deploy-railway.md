@@ -73,8 +73,8 @@ Add variables on the **App** service only (not on MySQL).
 
 | When | What |
 |------|------|
-| **After** MySQL exists | `DB_*` reference vars (`${{MySQL.MYSQLHOST}}`, etc.) — references fail if MySQL is missing |
-| **After** public domain exists | `CORS_ORIGIN=https://${{RAILWAY_PUBLIC_DOMAIN}}` |
+| **After** MySQL exists | Reference Railway MySQL vars (`MYSQLHOST=${{MySQL.MYSQLHOST}}`, etc.) — or use Variable → Add Reference |
+| **After** public domain exists | Optional `CORS_ORIGIN` — app auto-uses `https://$RAILWAY_PUBLIC_DOMAIN` if unset |
 | **Before** a successful boot | `APP_USERNAME`, `APP_PASSWORD`, `COOKIE_SECRET`, `NODE_ENV=production` |
 | **Before** AI / traces work | `NVIDIA_*`, `LANGFUSE_*` (app can start without these; features will fail until set) |
 
@@ -84,7 +84,7 @@ Practical order:
 2. Open App → **Variables** → paste the block in step 5 (fill secrets).
 3. **Redeploy** the App service (Railway usually auto-redeploys on variable save).
 
-You do **not** need env vars for the Docker **image build** (Vite uses empty `VITE_API_BASE_URL` for same-origin). Variables are required at **runtime** for DB, auth, CORS, NVIDIA, and Langfuse.
+You do **not** need env vars for the Docker **image build** (Vite uses empty `VITE_API_BASE_URL` for same-origin). Variables are required at **runtime** for DB, auth, NVIDIA, and Langfuse.
 
 ---
 
@@ -94,23 +94,25 @@ Open the App service → **Variables**. Paste via Raw Editor or add one-by-one.
 
 Use Railway [reference variables](https://docs.railway.com/guides/variables#referencing-another-services-variable) for MySQL. If your MySQL service is named differently, change `MySQL` in the `${{…}}` references.
 
+The app reads Railway’s native names (`MYSQLHOST`, `MYSQLPORT`, `MYSQLUSER`, `MYSQLPASSWORD`, `MYSQLDATABASE`) — same keys locally and on Railway.
+
 ```bash
 NODE_ENV=production
 
 # MySQL (reference the managed MySQL service — adjust service name if needed)
-DB_HOST=${{MySQL.MYSQLHOST}}
-DB_PORT=${{MySQL.MYSQLPORT}}
-DB_USERNAME=${{MySQL.MYSQLUSER}}
-DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
-DB_DATABASE=${{MySQL.MYSQLDATABASE}}
+MYSQLHOST=${{MySQL.MYSQLHOST}}
+MYSQLPORT=${{MySQL.MYSQLPORT}}
+MYSQLUSER=${{MySQL.MYSQLUSER}}
+MYSQLPASSWORD=${{MySQL.MYSQLPASSWORD}}
+MYSQLDATABASE=${{MySQL.MYSQLDATABASE}}
 
 # Auth — use strong unique values for the demo
 APP_USERNAME=
 APP_PASSWORD=
 COOKIE_SECRET=
 
-# Same-origin SPA + API (public HTTPS URL Railway assigned)
-CORS_ORIGIN=https://${{RAILWAY_PUBLIC_DOMAIN}}
+# Optional — if unset, CORS uses https://${{RAILWAY_PUBLIC_DOMAIN}}
+# CORS_ORIGIN=https://${{RAILWAY_PUBLIC_DOMAIN}}
 
 # NVIDIA
 NVIDIA_API_KEY=
@@ -135,6 +137,21 @@ openssl rand -base64 18   # APP_PASSWORD candidate
 If MySQL reference names differ in your project, open the MySQL service → **Variables** and copy the exact keys Railway shows (`MYSQLHOST`, etc.).
 
 Redeploy after saving variables.
+
+---
+
+## 5b. GitHub → Railway auto-redeploy
+
+Railway redeploys when you **push** (or merge) to the branch linked on the App service. There is no GitHub Action required.
+
+1. App service → **Settings** → **Source**
+2. Confirm the **GitHub repo** is connected (`ai-employee` or whatever you use).
+3. Set **Trigger branch** to the branch you merge into (`master` or `staging` — must match).
+4. Ensure **Autodeploy** is **Enabled**.
+5. If you have **no** GitHub Actions CI, leave **Wait for CI** **off**. If it is on with no passing workflows, deploys stay skipped.
+6. Do not add restrictive **Watch Paths** unless you intend to ignore some folders (this repo’s `railway.toml` does not set them).
+
+After a merge to the trigger branch, Railway should show a new deployment “via GitHub”. If nothing appears: **Show Skipped**, reconnect the repo, or use Command Palette → **Deploy Latest Commit**.
 
 ---
 
@@ -166,9 +183,10 @@ Local development is unchanged: `docker compose up --build` with self-hosted Lan
 |---------|-----|
 | `pnpm: command not found` on Frontend **and** Backend | You have separate Node services. Delete them; deploy **one** Dockerfile App (`docker/app.Dockerfile`). |
 | Build fails on Dockerfile `pnpm` steps | Pull latest repo (Dockerfile installs pnpm via `npm install -g pnpm@10.33.2`), clear build cache, redeploy. |
-| App crashes on start / migration errors | MySQL not linked or `DB_*` vars wrong / empty — fix Variables, redeploy. |
-| Login / CORS issues | Set `CORS_ORIGIN` to the public HTTPS URL; regenerate domain refs if needed. |
+| App crashes on start / migration errors | MySQL not linked or `MYSQLHOST` / … refs wrong / empty — fix Variables, redeploy. |
+| Login / CORS issues | Confirm public domain exists; set `CORS_ORIGIN` or rely on `RAILWAY_PUBLIC_DOMAIN` auto-fallback. |
 | No “View Trace” | Set Langfuse Cloud keys + `LANGFUSE_BASE_URL` / `LANGFUSE_UI_URL` to `https://cloud.langfuse.com`. |
+| Push/merge does not redeploy | App → Settings → Source: Autodeploy on, trigger branch matches merge target, Wait for CI off (if no Actions). |
 
 ---
 

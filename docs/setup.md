@@ -13,7 +13,7 @@ Override via root `.env`.
 
 ## Database
 
-TypeORM connects using `DB_*` variables. No entities are registered yet.
+TypeORM connects using Railway-compatible `MYSQLHOST` / `MYSQLPORT` / `MYSQLUSER` / `MYSQLPASSWORD` / `MYSQLDATABASE`.
 
 ## Frontend API URL
 
