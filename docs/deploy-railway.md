@@ -120,12 +120,17 @@ NVIDIA_API_BASE_URL=https://integrate.api.nvidia.com/v1
 NVIDIA_MODEL=meta/llama-3.1-70b-instruct
 NVIDIA_TIMEOUT_MS=60000
 
-# Langfuse Cloud (not the local Compose stack)
+# Langfuse Cloud US (not the local Compose stack)
+# Use the host that matches your project region (US / EU / JP).
 LANGFUSE_PUBLIC_KEY=
 LANGFUSE_SECRET_KEY=
-LANGFUSE_BASE_URL=https://cloud.langfuse.com
-LANGFUSE_UI_URL=https://cloud.langfuse.com
+LANGFUSE_BASE_URL=https://us.cloud.langfuse.com
+LANGFUSE_UI_URL=https://us.cloud.langfuse.com
+LANGFUSE_PROJECT_ID=
 ```
+
+`LANGFUSE_PROJECT_ID` is the segment after `/project/` in the Langfuse UI
+(e.g. `https://us.cloud.langfuse.com/project/<this-id>/traces`).
 
 Generate secrets locally (do not commit the output):
 
@@ -185,7 +190,7 @@ Local development is unchanged: `docker compose up --build` with self-hosted Lan
 | Build fails on Dockerfile `pnpm` steps | Pull latest repo (Dockerfile installs pnpm via `npm install -g pnpm@10.33.2`), clear build cache, redeploy. |
 | App crashes on start / migration errors | MySQL not linked or `MYSQLHOST` / … refs wrong / empty — fix Variables, redeploy. |
 | Login / CORS issues | Confirm public domain exists; set `CORS_ORIGIN` or rely on `RAILWAY_PUBLIC_DOMAIN` auto-fallback. |
-| No “View Trace” | Set Langfuse Cloud keys + `LANGFUSE_BASE_URL` / `LANGFUSE_UI_URL` to `https://cloud.langfuse.com`. |
+| No “View Trace” / wrong Langfuse host | Set Cloud keys + `LANGFUSE_BASE_URL` / `LANGFUSE_UI_URL` to your region host (US: `https://us.cloud.langfuse.com`) and `LANGFUSE_PROJECT_ID` from the UI URL. |
 | Push/merge does not redeploy | App → Settings → Source: Autodeploy on, trigger branch matches merge target, Wait for CI off (if no Actions). |
 
 ---
