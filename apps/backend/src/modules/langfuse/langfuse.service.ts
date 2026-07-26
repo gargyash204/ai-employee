@@ -32,6 +32,7 @@ export class LangfuseService {
   private readonly secretKey: string;
   private readonly baseUrl: string;
   private readonly uiUrl: string;
+  private readonly projectId: string;
   private readonly enabled: boolean;
 
   constructor(private readonly config: ConfigService) {
@@ -43,6 +44,9 @@ export class LangfuseService {
     this.uiUrl = this.config
       .get<string>('LANGFUSE_UI_URL', this.baseUrl)
       .replace(/\/$/, '');
+    this.projectId =
+      this.config.get<string>('LANGFUSE_PROJECT_ID', '') ||
+      this.config.get<string>('LANGFUSE_INIT_PROJECT_ID', 'zamp-project');
     this.enabled = Boolean(this.publicKey && this.secretKey);
   }
 
@@ -51,7 +55,7 @@ export class LangfuseService {
   }
 
   getTraceUrl(traceId: string): string {
-    return `${this.uiUrl}/trace/${traceId}`;
+    return `${this.uiUrl}/project/${this.projectId}/traces/${traceId}`;
   }
 
   /**

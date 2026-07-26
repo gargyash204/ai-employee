@@ -4,8 +4,12 @@
  */
 import assert from 'node:assert/strict';
 
-function getTraceUrl(uiUrl: string, traceId: string): string {
-  return `${uiUrl.replace(/\/$/, '')}/trace/${traceId}`;
+function getTraceUrl(
+  uiUrl: string,
+  projectId: string,
+  traceId: string,
+): string {
+  return `${uiUrl.replace(/\/$/, '')}/project/${projectId}/traces/${traceId}`;
 }
 
 function toLangfuseUsage(usage: {
@@ -23,8 +27,16 @@ function toLangfuseUsage(usage: {
 }
 
 assert.equal(
-  getTraceUrl('http://localhost:3100/', 'abc'),
-  'http://localhost:3100/trace/abc',
+  getTraceUrl('http://localhost:3100/', 'zamp-project', 'abc'),
+  'http://localhost:3100/project/zamp-project/traces/abc',
+);
+assert.equal(
+  getTraceUrl(
+    'https://us.cloud.langfuse.com',
+    'cms0fth8k0cv5ad0g0paxtw4r',
+    '60eb1e08-ce8a-4e0f-be2d-6a71c3371467',
+  ),
+  'https://us.cloud.langfuse.com/project/cms0fth8k0cv5ad0g0paxtw4r/traces/60eb1e08-ce8a-4e0f-be2d-6a71c3371467',
 );
 assert.deepEqual(
   toLangfuseUsage({

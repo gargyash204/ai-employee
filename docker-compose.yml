@@ -83,6 +83,7 @@ services:
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-zamp-local}
       LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-http://langfuse-web:3000}
       LANGFUSE_UI_URL: ${LANGFUSE_UI_URL:-http://localhost:3100}
+      LANGFUSE_PROJECT_ID: ${LANGFUSE_PROJECT_ID:-zamp-project}
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
     ports:

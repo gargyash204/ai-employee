@@ -1,6 +1,6 @@
 # Memory: AI Observability Dashboard
 
-Last updated: 2026-07-25
+Last updated: 2026-07-26
 
 ## Purpose
 
@@ -67,9 +67,16 @@ Auth required. Response shape: `{ success, data, message }`.
 
 ## Env
 
-- `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` (local defaults via compose init)
-- `LANGFUSE_BASE_URL` (backend → Langfuse API; in Docker: `http://langfuse-web:3000`)
-- `LANGFUSE_UI_URL` (browser “Open in Langfuse”; `http://localhost:3100`)
+| Env | Local (Docker Compose) | Prod (Railway) |
+|-----|------------------------|----------------|
+| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | Compose init defaults | Langfuse Cloud US project keys |
+| `LANGFUSE_BASE_URL` | `http://langfuse-web:3000` (backend→API) | `https://us.cloud.langfuse.com` |
+| `LANGFUSE_UI_URL` | `http://localhost:3100` (browser links) | `https://us.cloud.langfuse.com` |
+| `LANGFUSE_PROJECT_ID` | `zamp-project` (or `LANGFUSE_INIT_PROJECT_ID`) | Cloud project id from `/project/<id>/…` |
+
+`getTraceUrl` builds: `{LANGFUSE_UI_URL}/project/{LANGFUSE_PROJECT_ID}/traces/{traceId}` (not `/trace/{id}`).
+
+Ingestion is sync HTTP to `{BASE_URL}/api/public/ingestion` (5s timeout). UI may lag briefly after ingest; wrong region host or missing `PROJECT_ID` produces broken Overview links even when traces exist.
 
 ## Invariants
 

@@ -16,7 +16,7 @@ Single source of truth: root `.env` (from `.env.example`). Docker Compose inject
 | `MYSQLHOST` / `MYSQLPORT` / `MYSQLUSER` / `MYSQLPASSWORD` / `MYSQLDATABASE` | TypeORM MySQL connection (same names as Railway MySQL) |
 | `CORS_ORIGIN` | Allowed CORS origins. On Railway, optional — falls back to `https://$RAILWAY_PUBLIC_DOMAIN` |
 | `NVIDIA_API_KEY` / `NVIDIA_API_BASE_URL` / `NVIDIA_MODEL` / `NVIDIA_TIMEOUT_MS` | AI provider |
-| `LANGFUSE_*` | Langfuse telemetry (keys, URLs, init). Local Compose uses self-hosted URLs; Railway demo uses Langfuse Cloud — see [deploy-railway.md](./deploy-railway.md) |
+| `LANGFUSE_*` | Langfuse telemetry. Local: `BASE_URL=http://langfuse-web:3000`, `UI_URL=http://localhost:3100`, `PROJECT_ID=zamp-project`. Prod (Railway): US Cloud `https://us.cloud.langfuse.com` + Cloud keys + `LANGFUSE_PROJECT_ID` — see [deploy-railway.md](./deploy-railway.md) |
 | `VITE_API_BASE_URL` | Frontend API base URL. Local: `http://localhost:3000`. Combined Railway image builds with empty string (same-origin via nginx) |
 
 See `.env.example` for the full list and defaults. Railway deploy steps: [deploy-railway.md](./deploy-railway.md).
