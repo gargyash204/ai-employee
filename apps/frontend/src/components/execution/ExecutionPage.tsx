@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { toastSuccess } from '@/hooks/use-toast'
 import {
-  cancelExecution,
   createExecution,
   getExecution,
   isExecutionActive,
@@ -41,8 +40,6 @@ function settledToastMessage(detail: ExecutionDetail) {
       return 'Execution paused — you can resume from the current step'
     case 'Failed':
       return 'Execution failed'
-    case 'Cancelled':
-      return 'Execution cancelled'
     default:
       return 'Execution finished'
   }
@@ -56,7 +53,6 @@ export function ExecutionPage({ runtimeId }: ExecutionPageProps) {
   const [submitting, setSubmitting] = useState(false)
   const [pollingId, setPollingId] = useState<string | null>(null)
   const [resumeLoadingId, setResumeLoadingId] = useState<string | null>(null)
-  const [cancelLoadingId, setCancelLoadingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const pollGeneration = useRef(0)
 
@@ -116,9 +112,7 @@ export function ExecutionPage({ runtimeId }: ExecutionPageProps) {
         await applyPollUpdate(detail)
         const list = await listExecutions(runtimeId)
         setExecutions(list)
-                    if (detail.status !== 'Cancelled') {
-                      toastSuccess(settledToastMessage(detail))
-                    }
+        toastSuccess(settledToastMessage(detail))
       } catch (err) {
         if (generation !== pollGeneration.current) return
         setError(getErrorMessage(err, 'Failed to track execution progress'))
@@ -185,23 +179,6 @@ export function ExecutionPage({ runtimeId }: ExecutionPageProps) {
     }
   }
 
-  const handleCancel = async (id: string) => {
-    setCancelLoadingId(id)
-    setError(null)
-
-    try {
-      const detail = await cancelExecution(id)
-      setSelected(detail)
-      const list = await listExecutions(runtimeId)
-      setExecutions(list)
-    } catch (err) {
-      setError(getErrorMessage(err, 'Failed to cancel execution'))
-      await loadExecutions()
-    } finally {
-      setCancelLoadingId(null)
-    }
-  }
-
   return (
     <div className="space-y-8">
       <ExecutionForm
@@ -231,10 +208,8 @@ export function ExecutionPage({ runtimeId }: ExecutionPageProps) {
           executions={executions}
           selectedId={selected?.id ?? null}
           resumeLoadingId={resumeLoadingId}
-          cancelLoadingId={cancelLoadingId}
           onSelect={(id) => void handleSelect(id)}
           onResume={(id) => void handleResume(id)}
-          onCancel={(id) => void handleCancel(id)}
         />
       )}
 
@@ -242,9 +217,7 @@ export function ExecutionPage({ runtimeId }: ExecutionPageProps) {
         <ExecutionDetails
           execution={selected}
           resumeLoading={resumeLoadingId === selected.id}
-          cancelLoading={cancelLoadingId === selected.id}
           onResume={() => void handleResume(selected.id)}
-          onCancel={() => void handleCancel(selected.id)}
         />
       ) : null}
     </div>

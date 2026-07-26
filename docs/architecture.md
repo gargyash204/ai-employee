@@ -145,7 +145,7 @@ Order and jobs:
 | Versions | `RuntimeVersions` | Edit Draft instructions; publish |
 | Dataset Manager | `EvaluationPage` | Curate Q&A cases; read-only run history / reports |
 | Development Studio | `DevelopmentStudioPage` | Paste document; run A/B; optional regression |
-| Executions | `ExecutionPage` | Start/resume/cancel production jobs |
+| Executions | `ExecutionPage` | Start/resume production jobs |
 
 Tabs are **not** separate routes. Switching Runtime resets to Overview.
 
@@ -212,7 +212,7 @@ After a version is Published:
 
 1. Open **Executions** → submit a document.
 2. Backend runs against `activeVersionId` through the checkpointed orchestrator.
-3. On failure the job **Pauses**; user can **Resume** or **Cancel** from the UI.
+3. On failure the job **Pauses**; user can **Resume** from the UI (increments retry count, continues from checkpoints).
 
 ### 7. Observe (Overview)
 

@@ -6,14 +6,11 @@ import {
 import { CheckpointTimeline } from './CheckpointTimeline'
 import { ExecutionStatusBadge } from './ExecutionStatusBadge'
 import { ResumeButton } from './ResumeButton'
-import { CancelButton } from './CancelButton'
 
 type ExecutionDetailsProps = {
   execution: ExecutionDetail
   resumeLoading?: boolean
-  cancelLoading?: boolean
   onResume: () => void
-  onCancel: () => void
 }
 
 function formatVersionLabel(execution: ExecutionDetail) {
@@ -26,15 +23,9 @@ function formatVersionLabel(execution: ExecutionDetail) {
 export function ExecutionDetails({
   execution,
   resumeLoading,
-  cancelLoading,
   onResume,
-  onCancel,
 }: ExecutionDetailsProps) {
   const canResume = execution.status === 'Paused'
-  const canCancel =
-    execution.status === 'Queued' ||
-    execution.status === 'Running' ||
-    execution.status === 'Paused'
 
   return (
     <div className="space-y-6">
@@ -43,14 +34,9 @@ export function ExecutionDetails({
           <h3 className="text-sm font-medium">Execution Details</h3>
           <p className="mt-1 text-xs text-muted-foreground">{execution.id}</p>
         </div>
-        <div className="flex gap-2">
-          {canResume ? (
-            <ResumeButton loading={resumeLoading} onClick={onResume} />
-          ) : null}
-          {canCancel ? (
-            <CancelButton loading={cancelLoading} onClick={onCancel} />
-          ) : null}
-        </div>
+        {canResume ? (
+          <ResumeButton loading={resumeLoading} onClick={onResume} />
+        ) : null}
       </div>
 
       {isExecutionActive(execution.status) ? (

@@ -15,7 +15,6 @@ export enum ExecutionStatus {
   Paused = 'Paused',
   Completed = 'Completed',
   Failed = 'Failed',
-  Cancelled = 'Cancelled',
 }
 
 export enum ExecutionStep {

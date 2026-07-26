@@ -11,7 +11,6 @@ const STATUS_STYLES: Record<ExecutionStatus, string> = {
   Paused: 'bg-amber-100 text-amber-900',
   Completed: 'bg-emerald-100 text-emerald-900',
   Failed: 'bg-red-100 text-red-800',
-  Cancelled: 'bg-muted text-muted-foreground',
 }
 
 export function ExecutionStatusBadge({ status }: ExecutionStatusBadgeProps) {
