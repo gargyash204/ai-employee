@@ -22,7 +22,8 @@ export function ExecutionForm({
       <div>
         <h3 className="text-sm font-medium">Execute Document</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Runs against the active Published runtime version.
+          Queues a job against the active Published runtime version. Execution
+          runs in the background and can take a few minutes.
         </p>
       </div>
 
@@ -43,7 +44,7 @@ export function ExecutionForm({
         disabled={disabled || submitting || !document.trim()}
         onClick={onSubmit}
       >
-        {submitting ? 'Executing…' : 'Execute'}
+        {submitting ? 'Queuing…' : 'Execute'}
       </Button>
     </div>
   )
