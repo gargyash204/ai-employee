@@ -11,6 +11,7 @@ Living context for agents. Prefer these files over re-scanning the whole codebas
 | [production-executions.md](./production-executions.md) | Production executions, checkpoints, resume | Shipped |
 | [observability.md](./observability.md) | AI Observability Dashboard (Audit + Langfuse) | Shipped |
 | [runtime-configuration.md](./runtime-configuration.md) | Legacy instructions + questions config | Superseded by versioning |
+| [railway-deploy.md](./railway-deploy.md) | Railway App + MySQL env + GitHub autodeploy | Shipped |
 
 ## Rules
 

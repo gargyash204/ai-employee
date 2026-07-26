@@ -1,4 +1,10 @@
 # Single combined App service (nginx SPA + Nest). Do not deploy apps/frontend or apps/backend separately.
+#
+# GitHub autodeploy (Railway dashboard → App → Settings → Source):
+# - Repo connected + Autodeploy Enabled
+# - Trigger branch = branch you merge into (master or staging)
+# - Disable "Wait for CI" unless you have GitHub Actions that must pass first
+# - No watchPatterns here so every push to the trigger branch redeploys
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "docker/app.Dockerfile"

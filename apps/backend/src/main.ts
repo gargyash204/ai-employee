@@ -14,8 +14,14 @@ async function bootstrap() {
     }),
   );
 
+  const corsOrigin =
+    process.env.CORS_ORIGIN ??
+    (process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : undefined);
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') ?? true,
+    origin: corsOrigin?.split(',') ?? true,
     credentials: true,
   });
 
