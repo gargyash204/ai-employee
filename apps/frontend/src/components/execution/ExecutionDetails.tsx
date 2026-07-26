@@ -1,5 +1,6 @@
 import {
   formatExecutionStep,
+  isExecutionActive,
   type ExecutionDetail,
 } from '@/services/execution.service'
 import { CheckpointTimeline } from './CheckpointTimeline'
@@ -51,6 +52,12 @@ export function ExecutionDetails({
           ) : null}
         </div>
       </div>
+
+      {isExecutionActive(execution.status) ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          Still running — checkpoints appear as each step finishes.
+        </p>
+      ) : null}
 
       <dl className="space-y-3 text-sm">
         <div className="grid grid-cols-[9rem_1fr] gap-2">

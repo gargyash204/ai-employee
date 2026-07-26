@@ -109,16 +109,12 @@ export class ExecutionService {
         currentStep: execution.currentStep,
         retryCount: execution.retryCount,
         success: true,
-        message: 'Execution created',
+        message: 'Execution queued',
       }),
     );
 
-    const completed = await this.orchestrator.run(
-      execution,
-      version.instructions,
-    );
-    await this.recordTerminalAudit(completed, version);
-    return this.toDetailResponse(completed, version);
+    this.scheduleRun(execution, version);
+    return this.toDetailResponse(execution, version);
   }
 
   async list(runtimeId: string): Promise<ExecutionSummaryResponse[]> {
@@ -216,12 +212,8 @@ export class ExecutionService {
       }),
     );
 
-    const completed = await this.orchestrator.run(
-      updated,
-      version.instructions,
-    );
-    await this.recordTerminalAudit(completed, version);
-    return this.toDetailResponse(completed, version);
+    this.scheduleRun(updated, version);
+    return this.toDetailResponse(updated, version);
   }
 
   async cancel(id: string): Promise<ExecutionDetailResponse> {
@@ -260,6 +252,36 @@ export class ExecutionService {
       updated.runtimeVersionId,
     );
     return this.toDetailResponse(updated, version);
+  }
+
+  // ponytail: in-process fire-and-forget; ceiling = single Node process, no durable worker queue. Upgrade: BullMQ / separate worker when multi-instance.
+  private scheduleRun(
+    execution: ExecutionEntity,
+    version: RuntimeVersionEntity,
+  ): void {
+    void this.orchestrator
+      .run(execution, version.instructions)
+      .then((completed) => this.recordTerminalAudit(completed, version))
+      .catch(async (error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : 'Unknown orchestrator failure';
+        this.logger.error(
+          JSON.stringify({
+            executionId: execution.id,
+            runtimeVersionId: execution.runtimeVersionId,
+            currentStep: execution.currentStep,
+            retryCount: execution.retryCount,
+            success: false,
+            message,
+          }),
+        );
+
+        const paused =
+          (await this.executionRepository.update(execution.id, {
+            status: ExecutionStatus.Paused,
+          })) ?? execution;
+        await this.recordTerminalAudit(paused, version);
+      });
   }
 
   private async recordTerminalAudit(

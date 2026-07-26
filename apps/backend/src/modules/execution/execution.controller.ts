@@ -22,12 +22,7 @@ export class ExecutionController {
     return {
       success: true,
       data,
-      message:
-        data.status === 'Completed'
-          ? 'Execution completed'
-          : data.status === 'Paused'
-            ? 'Execution paused'
-            : 'Execution created',
+      message: 'Execution queued — this can take a few minutes',
     };
   }
 
@@ -57,12 +52,7 @@ export class ExecutionController {
     return {
       success: true,
       data,
-      message:
-        data.status === 'Completed'
-          ? 'Execution completed'
-          : data.status === 'Paused'
-            ? 'Execution paused'
-            : 'Execution resumed',
+      message: 'Execution resumed — running in the background',
     };
   }
 

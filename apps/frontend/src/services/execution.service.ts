@@ -1,4 +1,9 @@
 import { api } from '@/lib/api'
+import {
+  isExecutionActive,
+  nextPollDelayMs,
+  POLL_INITIAL_MS,
+} from './execution-poll'
 
 export type ExecutionStatus =
   | 'Queued'
@@ -49,7 +54,13 @@ type ApiSuccess<T> = {
   message: string
 }
 
-const EXECUTION_TIMEOUT_MS = 600_000
+export { isExecutionActive, nextPollDelayMs } from './execution-poll'
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
 
 export async function createExecution(input: {
   runtimeId: string
@@ -58,7 +69,6 @@ export async function createExecution(input: {
   const { data } = await api.post<ApiSuccess<ExecutionDetail>>(
     '/executions',
     input,
-    { timeout: EXECUTION_TIMEOUT_MS },
   )
   return data.data
 }
@@ -78,11 +88,26 @@ export async function getExecution(id: string) {
   return data.data
 }
 
+export async function pollExecution(
+  id: string,
+  onUpdate?: (detail: ExecutionDetail) => void,
+): Promise<ExecutionDetail> {
+  let delayMs = POLL_INITIAL_MS
+
+  for (;;) {
+    const detail = await getExecution(id)
+    onUpdate?.(detail)
+    if (!isExecutionActive(detail.status)) {
+      return detail
+    }
+    await sleep(delayMs)
+    delayMs = nextPollDelayMs(delayMs)
+  }
+}
+
 export async function resumeExecution(id: string) {
   const { data } = await api.post<ApiSuccess<ExecutionDetail>>(
     `/executions/${id}/resume`,
-    {},
-    { timeout: EXECUTION_TIMEOUT_MS },
   )
   return data.data
 }

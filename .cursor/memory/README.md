@@ -12,6 +12,7 @@ Living context for agents. Prefer these files over re-scanning the whole codebas
 | [observability.md](./observability.md) | AI Observability Dashboard (Audit + Langfuse) | Shipped |
 | [runtime-configuration.md](./runtime-configuration.md) | Legacy instructions + questions config | Superseded by versioning |
 | [railway-deploy.md](./railway-deploy.md) | Railway App + MySQL env + GitHub autodeploy | Shipped |
+| [frontend-toasts.md](./frontend-toasts.md) | Global API success/error toasts (Axios) | Shipped |
 
 ## Rules
 
