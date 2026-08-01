@@ -25,6 +25,7 @@ export type ExecutionSummaryResponse = {
 
 export type ExecutionDetailResponse = ExecutionSummaryResponse & {
   document: string;
+  parserError: string | null;
   finalOutput: Record<string, unknown> | null;
   checkpoints: ExecutionCheckpointResponse[];
 };

@@ -160,7 +160,11 @@ export function RuntimeDetails({
         ) : null}
 
         {tab === 'executions' ? (
-          <ExecutionPage key={runtime.id} runtimeId={runtime.id} />
+          <ExecutionPage
+            key={runtime.id}
+            runtimeId={runtime.id}
+            activeVersionId={runtime.activeVersionId}
+          />
         ) : null}
       </div>
     </div>

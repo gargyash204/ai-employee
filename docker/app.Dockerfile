@@ -34,7 +34,7 @@ COPY apps/frontend/ .
 RUN pnpm run build
 
 FROM node:22-alpine AS production
-RUN apk add --no-cache nginx gettext \
+RUN apk add --no-cache nginx gettext tesseract-ocr tesseract-ocr-data-eng poppler-utils \
   && mkdir -p /etc/nginx/templates /run/nginx \
   && rm -f /etc/nginx/http.d/default.conf
 

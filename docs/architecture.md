@@ -210,9 +210,11 @@ Studio never owns dataset CRUD; evaluation scoring lives only in `EvaluationServ
 
 After a version is Published:
 
-1. Open **Executions** → submit a document.
-2. Backend runs against `activeVersionId` through the checkpointed orchestrator.
-3. On failure the job **Pauses**; user can **Resume** from the UI (increments retry count, continues from checkpoints).
+1. Open **Executions** → upload a PDF (≤ 2 MB).
+2. Backend extracts text (`ParsingDocument`: embedded text, OCR fallback), then runs against `activeVersionId` through the checkpointed orchestrator.
+3. On parse or AI failure the job **Pauses**; user can **Resume** from the UI (same execution — re-parse if needed, otherwise continue from checkpoints).
+
+The Runtime / orchestrator only ever receives extracted text, never PDF bytes.
 
 ### 7. Observe (Overview)
 

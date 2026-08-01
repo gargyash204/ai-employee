@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AiProviderModule } from '../ai-provider/ai-provider.module';
 import { AuditModule } from '../audit/audit.module';
+import { DocumentParserModule } from '../document-parser/document-parser.module';
 import { ExecutionCheckpointRepositoryModule } from '../../repositories/execution-checkpoint/execution-checkpoint.repository.module';
 import { ExecutionRepositoryModule } from '../../repositories/execution/execution.repository.module';
 import { RuntimeRepositoryModule } from '../../repositories/runtime/runtime.repository.module';
@@ -19,6 +20,7 @@ import { ValidationExecutor } from './orchestrator/executors/validation.executor
   imports: [
     AiProviderModule,
     AuditModule,
+    DocumentParserModule,
     ExecutionRepositoryModule,
     ExecutionCheckpointRepositoryModule,
     RuntimeRepositoryModule,

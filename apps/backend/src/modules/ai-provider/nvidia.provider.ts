@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AiProvider } from './ai-provider.interface';
 import { AiProviderError } from './ai-provider.error';
-import { AiChatMessage, AiCompletionResult } from './ai-provider.types';
+import {
+  AiChatMessage,
+  AiCompleteOptions,
+  AiCompletionResult,
+} from './ai-provider.types';
 
 type ChatCompletionResponse = {
   model?: string;
@@ -42,7 +46,10 @@ export class NvidiaProvider implements AiProvider {
     );
   }
 
-  async complete(messages: AiChatMessage[]): Promise<AiCompletionResult> {
+  async complete(
+    messages: AiChatMessage[],
+    options?: AiCompleteOptions,
+  ): Promise<AiCompletionResult> {
     if (!this.apiKey) {
       throw new AiProviderError(
         'PROVIDER_FAILURE',
@@ -65,7 +72,10 @@ export class NvidiaProvider implements AiProvider {
           model: this.model,
           messages,
           temperature: 0.2,
-          max_tokens: 2048,
+          max_tokens: 4096,
+          ...(options?.json
+            ? { response_format: { type: 'json_object' } }
+            : {}),
         }),
         signal: controller.signal,
       });

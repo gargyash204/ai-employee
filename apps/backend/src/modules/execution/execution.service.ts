@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   Logger,
   NotFoundException,
@@ -23,13 +24,16 @@ import {
   RuntimeVersionEntity,
   RuntimeVersionStatus,
 } from '../../repositories/runtime-version/runtime-version.entity';
-import { CreateExecutionDto } from './execution.dto';
+import { DocumentParserService } from '../document-parser/document-parser.service';
+import { TempFileService } from '../document-parser/temp-file.service';
 import {
   ExecutionCheckpointResponse,
   ExecutionDetailResponse,
   ExecutionSummaryResponse,
 } from './execution.types';
 import { ExecutionOrchestrator } from './orchestrator/execution.orchestrator';
+
+const MAX_EXTRACTED_CHARS = 100_000;
 
 @Injectable()
 export class ExecutionService {
@@ -42,63 +46,43 @@ export class ExecutionService {
     private readonly versionRepository: RuntimeVersionRepository,
     private readonly orchestrator: ExecutionOrchestrator,
     private readonly auditService: AuditService,
+    private readonly documentParser: DocumentParserService,
+    private readonly tempFileService: TempFileService,
   ) {}
 
-  async create(dto: CreateExecutionDto): Promise<ExecutionDetailResponse> {
-    const document = dto.document.trim();
-    if (!document) {
-      throw new BadRequestException('Document must not be empty');
-    }
-
-    const runtime = await this.runtimeRepository.findById(dto.runtimeId);
-    if (!runtime) {
-      throw new NotFoundException('Runtime not found');
-    }
-
-    if (!runtime.activeVersionId) {
-      throw new BadRequestException(
-        'No published runtime version available for production execution',
-      );
-    }
-
-    const version = await this.versionRepository.findById(
-      runtime.activeVersionId,
+  async createFromUpload(input: {
+    runtimeId: string;
+    versionId?: string;
+    tempFilePath: string;
+    mimetype: string;
+  }): Promise<ExecutionDetailResponse> {
+    const version = await this.resolvePublishedVersion(
+      input.runtimeId,
+      input.versionId,
     );
-    if (!version) {
-      throw new NotFoundException('Published runtime version not found');
-    }
-
-    if (version.status !== RuntimeVersionStatus.Published) {
-      throw new BadRequestException(
-        'Draft runtime versions cannot be executed in production',
-      );
-    }
-
-    if (version.runtimeId !== runtime.id) {
-      throw new BadRequestException(
-        'Active version does not belong to this runtime',
-      );
-    }
 
     const execution = await this.executionRepository.create({
-      runtimeId: runtime.id,
+      runtimeId: input.runtimeId,
       runtimeVersionId: version.id,
       status: ExecutionStatus.Queued,
-      currentStep: ExecutionStep.Queued,
-      document,
+      currentStep: ExecutionStep.ParsingDocument,
+      document: '',
+      tempFilePath: input.tempFilePath,
+      parserError: null,
     });
 
     await this.auditService.record({
-      runtimeId: runtime.id,
+      runtimeId: input.runtimeId,
       eventType: AuditEventType.ExecutionStarted,
       entityType: AuditEntityType.Execution,
       entityId: execution.id,
       title: 'Execution Started',
-      description: `Version ${version.version}`,
+      description: `Version ${version.version} — parsing PDF`,
       metadata: {
         runtimeVersionId: version.id,
         runtimeVersionNumber: version.version,
-        document,
+        source: 'pdf',
+        mimetype: input.mimetype,
       },
     });
 
@@ -109,11 +93,11 @@ export class ExecutionService {
         currentStep: execution.currentStep,
         retryCount: execution.retryCount,
         success: true,
-        message: 'Execution queued',
+        message: 'Execution queued for PDF parsing',
       }),
     );
 
-    this.scheduleRun(execution, version);
+    this.scheduleParseAndRun(execution, version, input.mimetype);
     return this.toDetailResponse(execution, version);
   }
 
@@ -180,6 +164,7 @@ export class ExecutionService {
       (await this.executionRepository.update(execution.id, {
         status: ExecutionStatus.Running,
         retryCount: execution.retryCount + 1,
+        parserError: null,
       })) ?? execution;
 
     await this.auditService.record({
@@ -208,11 +193,161 @@ export class ExecutionService {
       }),
     );
 
-    this.scheduleRun(updated, version);
+    if (updated.currentStep === ExecutionStep.ParsingDocument) {
+      this.scheduleParseAndRun(updated, version, 'application/pdf');
+    } else {
+      this.scheduleRun(updated, version);
+    }
+
     return this.toDetailResponse(updated, version);
   }
 
   // ponytail: in-process fire-and-forget; ceiling = single Node process, no durable worker queue. Upgrade: BullMQ / separate worker when multi-instance.
+  private scheduleParseAndRun(
+    execution: ExecutionEntity,
+    version: RuntimeVersionEntity,
+    mimetype: string,
+  ): void {
+    void this.parseThenRun(execution, version, mimetype).catch(
+      async (error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : 'Unknown parse pipeline failure';
+        this.logger.error(
+          JSON.stringify({
+            executionId: execution.id,
+            runtimeVersionId: execution.runtimeVersionId,
+            currentStep: ExecutionStep.ParsingDocument,
+            retryCount: execution.retryCount,
+            success: false,
+            message,
+          }),
+        );
+
+        const paused =
+          (await this.executionRepository.update(execution.id, {
+            status: ExecutionStatus.Paused,
+            currentStep: ExecutionStep.ParsingDocument,
+            parserError: message,
+          })) ?? execution;
+        await this.recordTerminalAudit(paused, version);
+      },
+    );
+  }
+
+  private async parseThenRun(
+    execution: ExecutionEntity,
+    version: RuntimeVersionEntity,
+    mimetype: string,
+  ): Promise<void> {
+    const parsed = await this.runParsing(execution, mimetype);
+    await this.recordTerminalAudit(parsed, version);
+
+    if (parsed.status !== ExecutionStatus.Running) {
+      return;
+    }
+
+    const completed = await this.orchestrator.run(parsed, version.instructions);
+    await this.recordTerminalAudit(completed, version);
+  }
+
+  private async runParsing(
+    execution: ExecutionEntity,
+    mimetype: string,
+  ): Promise<ExecutionEntity> {
+    let current =
+      (await this.executionRepository.update(execution.id, {
+        status: ExecutionStatus.Running,
+        currentStep: ExecutionStep.ParsingDocument,
+        parserError: null,
+      })) ?? execution;
+
+    const existingCheckpoints =
+      await this.checkpointRepository.findByExecutionId(current.id);
+    const alreadyParsed = existingCheckpoints.some(
+      (checkpoint) => checkpoint.step === ExecutionStep.ParsingDocument,
+    );
+
+    if (alreadyParsed && current.document.trim()) {
+      await this.tempFileService.delete(current.tempFilePath);
+      return (
+        (await this.executionRepository.update(current.id, {
+          status: ExecutionStatus.Running,
+          currentStep: ExecutionStep.Queued,
+          tempFilePath: null,
+          parserError: null,
+        })) ?? current
+      );
+    }
+
+    if (!current.tempFilePath) {
+      const message =
+        'Temporary PDF is missing — upload expired. Start a new execution.';
+      return (
+        (await this.executionRepository.update(current.id, {
+          status: ExecutionStatus.Failed,
+          currentStep: ExecutionStep.ParsingDocument,
+          parserError: message,
+          completedAt: new Date(),
+        })) ?? current
+      );
+    }
+
+    try {
+      const result = await this.documentParser.parseFile({
+        filePath: current.tempFilePath,
+        mimetype,
+      });
+
+      if (!result.text.trim()) {
+        throw new BadRequestException(
+          'No readable text could be extracted from this PDF',
+        );
+      }
+
+      if (result.text.length > MAX_EXTRACTED_CHARS) {
+        throw new BadRequestException(
+          `Extracted text exceeds ${MAX_EXTRACTED_CHARS.toLocaleString()} characters`,
+        );
+      }
+
+      current =
+        (await this.executionRepository.update(current.id, {
+          document: result.text,
+          parserError: null,
+        })) ?? current;
+
+      await this.checkpointRepository.create({
+        executionId: current.id,
+        step: ExecutionStep.ParsingDocument,
+        output: {
+          method: result.method,
+          characterCount: result.text.length,
+          preview: result.text.slice(0, 240),
+        },
+      });
+
+      await this.tempFileService.delete(current.tempFilePath);
+
+      return (
+        (await this.executionRepository.update(current.id, {
+          status: ExecutionStatus.Running,
+          currentStep: ExecutionStep.Queued,
+          tempFilePath: null,
+          parserError: null,
+        })) ?? current
+      );
+    } catch (error) {
+      const message = this.toUserFacingError(error);
+      return (
+        (await this.executionRepository.update(current.id, {
+          status: ExecutionStatus.Paused,
+          currentStep: ExecutionStep.ParsingDocument,
+          parserError: message,
+        })) ?? current
+      );
+    }
+  }
+
   private scheduleRun(
     execution: ExecutionEntity,
     version: RuntimeVersionEntity,
@@ -238,8 +373,92 @@ export class ExecutionService {
           (await this.executionRepository.update(execution.id, {
             status: ExecutionStatus.Paused,
           })) ?? execution;
-        await this.recordTerminalAudit(paused, version);
+
+        await this.auditService.record({
+          runtimeId: paused.runtimeId,
+          eventType: AuditEventType.ExecutionPaused,
+          entityType: AuditEntityType.Execution,
+          entityId: paused.id,
+          title: 'Execution Paused',
+          description: message,
+          metadata: {
+            runtimeVersionId: version.id,
+            runtimeVersionNumber: version.version,
+            currentStep: paused.currentStep,
+            retryCount: paused.retryCount,
+            failure: message,
+          },
+        });
       });
+  }
+
+  private async resolvePublishedVersion(
+    runtimeId: string,
+    versionId?: string,
+  ): Promise<RuntimeVersionEntity> {
+    const runtime = await this.runtimeRepository.findById(runtimeId);
+    if (!runtime) {
+      throw new NotFoundException('Runtime not found');
+    }
+
+    if (!runtime.activeVersionId) {
+      throw new BadRequestException(
+        'No published runtime version available for production execution',
+      );
+    }
+
+    if (versionId && versionId !== runtime.activeVersionId) {
+      throw new BadRequestException(
+        'versionId must match the active Published runtime version',
+      );
+    }
+
+    const version = await this.versionRepository.findById(
+      runtime.activeVersionId,
+    );
+    if (!version) {
+      throw new NotFoundException('Published runtime version not found');
+    }
+
+    if (version.status !== RuntimeVersionStatus.Published) {
+      throw new BadRequestException(
+        'Draft runtime versions cannot be executed in production',
+      );
+    }
+
+    if (version.runtimeId !== runtime.id) {
+      throw new BadRequestException(
+        'Active version does not belong to this runtime',
+      );
+    }
+
+    return version;
+  }
+
+  private toUserFacingError(error: unknown): string {
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+      if (typeof response === 'string') {
+        return response;
+      }
+      if (
+        response &&
+        typeof response === 'object' &&
+        'message' in response
+      ) {
+        const message = (response as { message: unknown }).message;
+        if (typeof message === 'string') {
+          return message;
+        }
+        if (Array.isArray(message) && message.length > 0) {
+          return String(message[0]);
+        }
+      }
+    }
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+    return 'Document parsing failed';
   }
 
   private async recordTerminalAudit(
@@ -307,18 +526,27 @@ export class ExecutionService {
     }
 
     if (execution.status === ExecutionStatus.Paused) {
+      // AI step pauses are audited by the orchestrator (with Langfuse traceId).
+      // Parse-stage pauses still need an audit here.
+      if (execution.currentStep !== ExecutionStep.ParsingDocument) {
+        return;
+      }
+
       await this.auditService.record({
         runtimeId: execution.runtimeId,
         eventType: AuditEventType.ExecutionPaused,
         entityType: AuditEntityType.Execution,
         entityId: execution.id,
         title: 'Execution Paused',
-        description: `At step ${execution.currentStep}`,
+        description: execution.parserError
+          ? execution.parserError
+          : `At step ${execution.currentStep}`,
         metadata: {
           runtimeVersionId: version.id,
           runtimeVersionNumber: version.version,
           currentStep: execution.currentStep,
           retryCount: execution.retryCount,
+          parserError: execution.parserError,
         },
       });
       return;
@@ -331,12 +559,15 @@ export class ExecutionService {
         entityType: AuditEntityType.Execution,
         entityId: execution.id,
         title: 'Execution Failed',
-        description: `At step ${execution.currentStep}`,
+        description: execution.parserError
+          ? execution.parserError
+          : `At step ${execution.currentStep}`,
         metadata: {
           runtimeVersionId: version.id,
           runtimeVersionNumber: version.version,
           currentStep: execution.currentStep,
           retryCount: execution.retryCount,
+          parserError: execution.parserError,
         },
       });
     }
@@ -361,6 +592,7 @@ export class ExecutionService {
     return {
       ...this.toSummaryResponse(execution, version ?? null),
       document: execution.document,
+      parserError: execution.parserError,
       finalOutput: execution.finalOutput,
       checkpoints: checkpoints.map((checkpoint) =>
         this.toCheckpointResponse(checkpoint),

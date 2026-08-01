@@ -8,6 +8,7 @@ import {
   listExecutions,
   pollExecution,
   resumeExecution,
+  formatExecutionStep,
   type ExecutionDetail,
   type ExecutionSummary,
 } from '@/services/execution.service'
@@ -17,6 +18,7 @@ import { ExecutionHistory } from './ExecutionHistory'
 
 type ExecutionPageProps = {
   runtimeId: string
+  activeVersionId: string | null
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -37,16 +39,31 @@ function settledToastMessage(detail: ExecutionDetail) {
     case 'Completed':
       return 'Execution completed'
     case 'Paused':
-      return 'Execution paused — you can resume from the current step'
+      return detail.parserError
+        ? `Parsing paused — ${detail.parserError}`
+        : 'Execution paused — you can resume from the current step'
     case 'Failed':
-      return 'Execution failed'
+      return detail.parserError ?? 'Execution failed'
     default:
       return 'Execution finished'
   }
 }
 
-export function ExecutionPage({ runtimeId }: ExecutionPageProps) {
-  const [document, setDocument] = useState('')
+function progressLabel(detail: ExecutionDetail | null, pollingId: string | null) {
+  if (!pollingId || !detail || detail.id !== pollingId) {
+    return null
+  }
+  if (detail.currentStep === 'ParsingDocument') {
+    return 'Parsing PDF… progress updates automatically.'
+  }
+  return `Running ${formatExecutionStep(detail.currentStep)}… this can take a few minutes.`
+}
+
+export function ExecutionPage({
+  runtimeId,
+  activeVersionId,
+}: ExecutionPageProps) {
+  const [file, setFile] = useState<File | null>(null)
   const [executions, setExecutions] = useState<ExecutionSummary[]>([])
   const [selected, setSelected] = useState<ExecutionDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -73,7 +90,7 @@ export function ExecutionPage({ runtimeId }: ExecutionPageProps) {
 
   useEffect(() => {
     void loadExecutions()
-    setDocument('')
+    setFile(null)
     setSelected(null)
     setPollingId(null)
     pollGeneration.current += 1
@@ -140,15 +157,21 @@ export function ExecutionPage({ runtimeId }: ExecutionPageProps) {
   }
 
   const handleExecute = async () => {
+    if (!file) {
+      setError('Select a PDF file to execute')
+      return
+    }
+
     setSubmitting(true)
     setError(null)
 
     try {
       const detail = await createExecution({
         runtimeId,
-        document,
+        versionId: activeVersionId,
+        file,
       })
-      setDocument('')
+      setFile(null)
       setSelected(detail)
       const list = await listExecutions(runtimeId)
       setExecutions(list)
@@ -179,19 +202,27 @@ export function ExecutionPage({ runtimeId }: ExecutionPageProps) {
     }
   }
 
+  const statusMessage = progressLabel(selected, pollingId)
+
   return (
     <div className="space-y-8">
       <ExecutionForm
-        document={document}
+        file={file}
         submitting={submitting}
-        onDocumentChange={setDocument}
+        disabled={!activeVersionId}
+        onFileChange={setFile}
         onSubmit={() => void handleExecute()}
       />
 
-      {pollingId ? (
+      {!activeVersionId ? (
         <p className="text-sm text-muted-foreground" role="status">
-          Execution is running in the background. This can take a few minutes —
-          progress updates automatically.
+          Publish a runtime version before running production executions.
+        </p>
+      ) : null}
+
+      {statusMessage ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          {statusMessage}
         </p>
       ) : null}
 

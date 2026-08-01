@@ -1,10 +1,11 @@
 # Memory: Production Executions
 
-Last updated: 2026-07-26
+Last updated: 2026-08-01
 
 ## Purpose
 
-Publish a Runtime Version and run durable production jobs against the active Published version. Executions advance stage-by-stage, persist checkpoints, pause on failure, and resume without re-running completed steps.
+
+Publish a Runtime Version and run durable production jobs against the active Published version. Executions accept a **PDF upload**, extract text (embedded → OCR fallback), then advance stage-by-stage with checkpoints, pause on failure, and resume without re-running completed steps.
 
 ## Data model
 
@@ -16,8 +17,10 @@ Publish a Runtime Version and run durable production jobs against the active Pub
 | `runtimeId` | FK → runtimes |
 | `runtimeVersionId` | FK → published version used for the job |
 | `status` | `Queued` \| `Running` \| `Paused` \| `Completed` \| `Failed` |
-| `currentStep` | `ExecutionStep` enum |
-| `document` | input text |
+| `currentStep` | `ExecutionStep` enum (includes `ParsingDocument`) |
+| `document` | extracted input text (empty until parse succeeds) |
+| `tempFilePath` | nullable path to temp PDF until parse succeeds |
+| `parserError` | nullable user-facing parse/OCR error |
 | `finalOutput` | nullable JSON (set on SaveOutput) |
 | `retryCount` | incremented on resume |
 | `startedAt` / `completedAt` | |
@@ -28,74 +31,86 @@ Publish a Runtime Version and run durable production jobs against the active Pub
 |-------|--------|
 | `id` | UUID PK |
 | `executionId` | FK, unique with `step` |
-| `step` | completed `ExecutionStep` |
+| `step` | completed `ExecutionStep` (incl. `ParsingDocument`) |
 | `output` | JSON step result |
 | `completedAt` | |
 
 ### ExecutionStep
 
-`Queued` → `ReadingDocument` → `ExtractStructuredData` → `GenerateAnswers` → `ValidateResult` → `SaveOutput` → `Completed`
+`ParsingDocument` → `Queued` → `ReadingDocument` → `ExtractStructuredData` → `GenerateAnswers` → `ValidateResult` → `SaveOutput` → `Completed`
+
+Parsing runs **outside** the AI orchestrator; Runtime only ever sees extracted text in `document`.
 
 ## Key paths
 
 ### Backend
 - Business: `apps/backend/src/modules/execution/`
-  - `execution.controller.ts` — `/executions`
-  - `execution.service.ts` — create/list/get/resume; `scheduleRun` fires orchestrator in-process after HTTP returns
-  - `execution.prompts.ts` — production answer prompt + parse
-  - `orchestrator/execution.orchestrator.ts` — stage loop, checkpoint, pause
-  - `orchestrator/executors/*` — Queued, Reading, Extract, Answer, Validation, Save
+  - `execution.controller.ts` — multipart `POST /executions`
+  - `execution.service.ts` — createFromUpload / parseThenRun / resume; `scheduleParseAndRun` then orchestrator
+  - `orchestrator/*` — AI pipeline (text only); extract/answers use `json: true`
+  - Extraction normalize: `experiment.prompts.ts` `parseExtractionResponse` (preferred `{summary,structuredData}` or any JSON object/array)
+- AI: `nvidia.provider.ts` sends `response_format: { type: "json_object" }` when `json: true`
+- Parser: `apps/backend/src/modules/document-parser/`
+  - `ParserStrategy` + `PdfParserStrategy` (embedded text → Tesseract OCR)
+  - `TempFileService` — local temp files + abandoned cleanup
 - Persistence: `repositories/execution/`, `repositories/execution-checkpoint/`
-- Migration: `migrations/1721745000000-CreateExecutionTables.ts`
+- Migrations: `1721745000000-CreateExecutionTables.ts`, `1721749000000-AddExecutionPdfParsingFields.ts`
+- Docker: `tesseract-ocr`, `tesseract-ocr-data-eng`, `poppler-utils` in `docker/backend.Dockerfile` + `docker/app.Dockerfile`
 
 ### Frontend
 - Tab: `RuntimeDetails` → Executions
-- Page: `components/execution/ExecutionPage.tsx` — queues then polls until settled
-- Pieces: `ExecutionForm`, `ExecutionHistory`, `ExecutionCard`, `ExecutionDetails`, `CheckpointTimeline`, `ExecutionStatusBadge`, `ResumeButton`
-- API: `services/execution.service.ts` — `pollExecution` exponential backoff (1s → 16s cap)
-- Poll helpers: `services/execution-poll.ts`
-- Check: `services/execution-poll.check.ts`
+- Page: `components/execution/ExecutionPage.tsx` — upload then polls until settled
+- Pieces: `ExecutionForm` (PDF), `ExecutionHistory`, `ExecutionCard`, `ExecutionDetails` (+ `parserError`), `CheckpointTimeline`, `ResumeButton`
+- API: `services/execution.service.ts` — FormData create; `pollExecution` unchanged
+- Validation: `components/execution/pdf-upload.ts` (PDF only, 1 file, ≤ 2 MB)
 
 ## APIs
 
 | Method | Path | Notes |
 |--------|------|-------|
-| POST | `/executions` | `{ runtimeId, document }` → creates `Queued`, returns immediately; run continues in background |
+| POST | `/executions` | multipart: `file`, `runtimeId`, optional `versionId` (must match active Published). Creates `ParsingDocument`, returns immediately |
 | GET | `/executions?runtimeId=` | History newest first |
-| GET | `/executions/:id` | Detail + checkpoints (used for polling) |
-| POST | `/executions/:id/resume` | Paused only; marks Running, increments `retryCount`, returns immediately; continues in background |
+| GET | `/executions/:id` | Detail + checkpoints + `parserError` (polling) |
+| POST | `/executions/:id/resume` | Paused only; same execution — re-parse if still on `ParsingDocument`, else continue AI |
 
 Auth required. Response shape: `{ success, data, message }`.
 
 ## Invariants
 
 - Production never runs Draft versions; requires Published `activeVersionId`.
-- Publish (existing `/runtime/:id/publish`) archives previous Published and sets `activeVersionId`.
-- Orchestrator skips steps that already have checkpoints.
-- AI/step failures → `Paused` (same `currentStep`); resume increments `retryCount` (retry = Resume).
-- No cancel — executions run to completion, pause, or fail.
-- Create/resume HTTP handlers do **not** await the full pipeline; frontend polls `GET /executions/:id` until status leaves `Queued`/`Running`.
-- Background runner is in-process (`scheduleRun`); not a durable multi-instance queue.
-- Controllers thin; repositories own TypeORM; AI behind `AiProvider` + `LangfuseService`.
-- Traces include `executionId` via Langfuse instrumentation (see [observability.md](./observability.md)).
+- Max PDF size **2 MB** (frontend + backend); magic-byte + encrypt checks on backend.
+- Temp PDF kept on parse failure for retry; deleted only after successful parse. Abandoned temps cleaned hourly (24h TTL).
+- OCR (Tesseract eng) only when embedded text is not meaningful; not every PDF.
+- Orchestrator skips steps that already have checkpoints; never sees PDF bytes.
+- Extract/answers request JSON mode from the provider; parser accepts broad JSON shapes (not only the preferred schema).
+- AI/step or parse failures → `Paused` (retry via Resume). Missing temp on retry → `Failed`.
+- On AI step failure, orchestrator writes `ExecutionPaused` audit **with Langfuse `traceId`** so Overview shows View Trace even when no checkpoint was created.
+- Create/resume HTTP handlers do **not** await the full pipeline; frontend polls until status leaves `Queued`/`Running`.
+- Background runner is in-process (`scheduleParseAndRun` / `scheduleRun`); not a durable multi-instance queue.
+- Legacy text-paste create API removed; historical executions without `ParsingDocument` still render (timeline hides that step).
 
 ## Errors
 
 | Case | Status |
 |------|--------|
 | Runtime / execution / published version missing | 404 |
-| No active published version / draft attempt | 400 |
+| No active published version / draft / wrong versionId | 400 |
+| Invalid/empty/oversized/encrypted/non-PDF | 400 |
+| Parse/OCR failure | Paused + `parserError` |
+| Temp missing on parse retry | Failed + `parserError` |
 | Resume completed / running / failed / not paused | 400 |
 
 ## Out of scope
 
+- S3 / object storage / long-term PDF retention
+- DOCX, images, Excel, multi-language OCR, handwriting, tables/diagrams
 - Cancel execution
-- Durable queue workers (BullMQ / separate process) — upgrade when multi-instance
+- Durable queue workers
 - Semantic validation / LLM-as-judge
 
 ## Related
 
 - Observability Dashboard: [observability.md](./observability.md)
 - Runtime Versioning: [runtime-versioning.md](./runtime-versioning.md)
-- Experiment Studio: [experiment-studio.md](./experiment-studio.md)
+- Experiment Studio: [experiment-studio.md](./experiment-studio.md) (still paste-text)
 - Evaluation Engine: [evaluation-engine.md](./evaluation-engine.md)

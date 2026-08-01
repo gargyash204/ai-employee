@@ -1,13 +1,13 @@
-import { IsNotEmpty, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsOptional, IsUUID } from 'class-validator';
 
-export class CreateExecutionDto {
+export class CreateExecutionUploadDto {
   @IsUUID()
   runtimeId!: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(100_000)
-  document!: string;
+  /** Optional; when set must match the runtime's active Published version. */
+  @IsOptional()
+  @IsUUID()
+  versionId?: string;
 }
 
 export class ListExecutionsQueryDto {

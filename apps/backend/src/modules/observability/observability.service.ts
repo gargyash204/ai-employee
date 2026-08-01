@@ -316,6 +316,7 @@ export class ObservabilityService {
           completedAt: checkpoint.completedAt.toISOString(),
         })),
         stepOrder: [
+          ExecutionStep.ParsingDocument,
           ExecutionStep.Queued,
           ExecutionStep.ReadingDocument,
           ExecutionStep.ExtractStructuredData,

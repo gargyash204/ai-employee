@@ -45,10 +45,16 @@ export function CheckpointTimeline({
   checkpoints,
 }: CheckpointTimelineProps) {
   const completedSteps = new Set(checkpoints.map((checkpoint) => checkpoint.step))
+  const includeParsing =
+    currentStep === 'ParsingDocument' ||
+    checkpoints.some((checkpoint) => checkpoint.step === 'ParsingDocument')
+  const steps = includeParsing
+    ? EXECUTION_STEP_ORDER
+    : EXECUTION_STEP_ORDER.filter((step) => step !== 'ParsingDocument')
 
   return (
     <ol className="space-y-2">
-      {EXECUTION_STEP_ORDER.map((step) => {
+      {steps.map((step) => {
         const state = resolveState(step, status, currentStep, completedSteps)
         const checkpoint = checkpoints.find((item) => item.step === step)
 

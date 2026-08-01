@@ -1,6 +1,6 @@
 # Memory: AI Observability Dashboard
 
-Last updated: 2026-07-26
+Last updated: 2026-07-30
 
 ## Purpose
 
@@ -19,7 +19,7 @@ Expected lifecycle labels in the feed:
 | Version published | Published |
 | Production run finished | Execution |
 
-When `traceId` is present, the feed shows **View Trace** (opens Langfuse via `langfuseUrl`).
+When `traceId` is present, the feed shows **View Trace** (opens Langfuse via `langfuseUrl`). This includes **Execution Paused** after an AI step failure (invalid JSON, provider error) — the orchestrator records the pause audit with the Langfuse `traceId` from the failed call.
 
 ## Data model
 

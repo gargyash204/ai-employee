@@ -163,11 +163,31 @@ export class ExecutionOrchestrator {
           error instanceof Error ? error.message : 'Unknown step failure';
         this.logEvent(current, step, false, message);
 
-        if (error instanceof AiProviderError) {
-          return this.pause(current, step, message);
-        }
+        const traceId =
+          error instanceof AiProviderError ? error.traceId : null;
+        const response =
+          error instanceof AiProviderError ? error.response : null;
 
-        return this.pause(current, step, message);
+        const paused = await this.pause(current, step, message);
+
+        await this.auditService.record({
+          runtimeId: paused.runtimeId,
+          eventType: AuditEventType.ExecutionPaused,
+          entityType: AuditEntityType.Execution,
+          entityId: paused.id,
+          title: 'Execution Paused',
+          description: message,
+          traceId,
+          metadata: {
+            runtimeVersionId: paused.runtimeVersionId,
+            currentStep: step,
+            retryCount: paused.retryCount,
+            failure: message,
+            response,
+          },
+        });
+
+        return paused;
       }
     }
 

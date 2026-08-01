@@ -14,6 +14,7 @@ export type ExecutionStatus =
 
 export type ExecutionStep =
   | 'Queued'
+  | 'ParsingDocument'
   | 'ReadingDocument'
   | 'ExtractStructuredData'
   | 'GenerateAnswers'
@@ -43,6 +44,7 @@ export type ExecutionSummary = {
 
 export type ExecutionDetail = ExecutionSummary & {
   document: string
+  parserError?: string | null
   finalOutput: Record<string, unknown> | null
   checkpoints: ExecutionCheckpoint[]
 }
@@ -63,11 +65,31 @@ function sleep(ms: number) {
 
 export async function createExecution(input: {
   runtimeId: string
-  document: string
+  versionId?: string | null
+  file: File
 }) {
+  const formData = new FormData()
+  formData.append('runtimeId', input.runtimeId)
+  if (input.versionId) {
+    formData.append('versionId', input.versionId)
+  }
+  formData.append('file', input.file)
+
   const { data } = await api.post<ApiSuccess<ExecutionDetail>>(
     '/executions',
-    input,
+    formData,
+    {
+      headers: { 'Content-Type': undefined },
+      timeout: 60_000,
+      transformRequest: [
+        (body, headers) => {
+          if (body instanceof FormData && headers) {
+            delete headers['Content-Type']
+          }
+          return body
+        },
+      ],
+    },
   )
   return data.data
 }
@@ -112,6 +134,7 @@ export async function resumeExecution(id: string) {
 }
 
 export const EXECUTION_STEP_ORDER: ExecutionStep[] = [
+  'ParsingDocument',
   'Queued',
   'ReadingDocument',
   'ExtractStructuredData',
@@ -124,6 +147,8 @@ export function formatExecutionStep(step: ExecutionStep) {
   switch (step) {
     case 'Queued':
       return 'Queued'
+    case 'ParsingDocument':
+      return 'Parsing Document'
     case 'ReadingDocument':
       return 'Reading Document'
     case 'ExtractStructuredData':
