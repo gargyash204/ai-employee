@@ -19,6 +19,7 @@ export enum ExecutionStatus {
 
 export enum ExecutionStep {
   Queued = 'Queued',
+  ParsingDocument = 'ParsingDocument',
   ReadingDocument = 'ReadingDocument',
   ExtractStructuredData = 'ExtractStructuredData',
   GenerateAnswers = 'GenerateAnswers',
@@ -54,6 +55,12 @@ export class ExecutionEntity {
 
   @Column({ type: 'text' })
   document!: string;
+
+  @Column({ name: 'temp_file_path', type: 'varchar', length: 512, nullable: true })
+  tempFilePath!: string | null;
+
+  @Column({ name: 'parser_error', type: 'text', nullable: true })
+  parserError!: string | null;
 
   @Column({ name: 'final_output', type: 'json', nullable: true })
   finalOutput!: Record<string, unknown> | null;

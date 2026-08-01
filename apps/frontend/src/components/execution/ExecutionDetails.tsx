@@ -64,6 +64,12 @@ export function ExecutionDetails({
           <dt className="text-muted-foreground">Retry Count</dt>
           <dd>{execution.retryCount}</dd>
         </div>
+        {execution.parserError ? (
+          <div className="grid grid-cols-[9rem_1fr] gap-2">
+            <dt className="text-muted-foreground">Failure Reason</dt>
+            <dd className="text-destructive">{execution.parserError}</dd>
+          </div>
+        ) : null}
       </dl>
 
       <div>

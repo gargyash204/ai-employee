@@ -207,6 +207,7 @@ export class ExperimentService {
           messages,
           instructions: version.instructions,
           document,
+          json: true,
           metadata: {
             runtimeId: version.runtimeId,
             runtimeVersionId: version.id,
@@ -216,7 +217,9 @@ export class ExperimentService {
       );
 
       return {
-        result: parseExtractionResponse(instrumented.completion.content),
+        result: parseExtractionResponse(instrumented.completion.content, {
+          traceId: instrumented.traceId,
+        }),
         traceId: instrumented.traceId,
         latencyMs: instrumented.latencyMs,
         model: instrumented.completion.model,

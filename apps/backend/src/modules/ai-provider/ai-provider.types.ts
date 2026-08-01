@@ -20,6 +20,12 @@ export type AiCompletionResult = {
   usage: AiUsage;
 };
 
+/** Optional transport hints for the chat-completions call. */
+export type AiCompleteOptions = {
+  /** Ask the provider for a JSON object via response_format. */
+  json?: boolean;
+};
+
 export type AiTraceContext = {
   runtimeId: string;
   runtimeVersionId: string;

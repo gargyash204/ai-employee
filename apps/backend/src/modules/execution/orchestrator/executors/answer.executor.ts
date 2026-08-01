@@ -43,6 +43,7 @@ export class AnswerExecutor implements StepExecutor {
         name: 'execution.answers',
         messages,
         instructions: context.instructions,
+        json: true,
         metadata: {
           runtimeId: context.runtimeId,
           runtimeVersionId: context.runtimeVersionId,
@@ -52,7 +53,9 @@ export class AnswerExecutor implements StepExecutor {
       },
     );
 
-    const answers = parseProductionAnswers(instrumented.completion.content);
+    const answers = parseProductionAnswers(instrumented.completion.content, {
+      traceId: instrumented.traceId,
+    });
 
     return {
       output: {

@@ -20,6 +20,8 @@ export class ExecutionRepository {
     status: ExecutionStatus;
     currentStep: ExecutionStep;
     document: string;
+    tempFilePath?: string | null;
+    parserError?: string | null;
   }): Promise<ExecutionEntity> {
     const entity = this.repo.create({
       runtimeId: data.runtimeId,
@@ -27,6 +29,8 @@ export class ExecutionRepository {
       status: data.status,
       currentStep: data.currentStep,
       document: data.document,
+      tempFilePath: data.tempFilePath ?? null,
+      parserError: data.parserError ?? null,
       finalOutput: null,
       retryCount: 0,
       completedAt: null,
@@ -61,6 +65,9 @@ export class ExecutionRepository {
     data: {
       status?: ExecutionStatus;
       currentStep?: ExecutionStep;
+      document?: string;
+      tempFilePath?: string | null;
+      parserError?: string | null;
       finalOutput?: Record<string, unknown> | null;
       retryCount?: number;
       completedAt?: Date | null;
@@ -76,6 +83,15 @@ export class ExecutionRepository {
     }
     if (data.currentStep !== undefined) {
       existing.currentStep = data.currentStep;
+    }
+    if (data.document !== undefined) {
+      existing.document = data.document;
+    }
+    if (data.tempFilePath !== undefined) {
+      existing.tempFilePath = data.tempFilePath;
+    }
+    if (data.parserError !== undefined) {
+      existing.parserError = data.parserError;
     }
     if (data.finalOutput !== undefined) {
       existing.finalOutput = data.finalOutput;

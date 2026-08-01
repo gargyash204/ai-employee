@@ -38,6 +38,7 @@ export class ExtractExecutor implements StepExecutor {
         messages,
         instructions: context.instructions,
         document,
+        json: true,
         metadata: {
           runtimeId: context.runtimeId,
           runtimeVersionId: context.runtimeVersionId,
@@ -49,6 +50,7 @@ export class ExtractExecutor implements StepExecutor {
 
     const extraction = parseExtractionResponse(
       instrumented.completion.content,
+      { traceId: instrumented.traceId },
     );
 
     return {

@@ -71,6 +71,8 @@ export class LangfuseService {
       instructions?: string;
       document?: string;
       question?: string;
+      /** When true, request JSON object mode from the provider. */
+      json?: boolean;
     },
   ): Promise<InstrumentedAiResult> {
     const prompt = input.messages
@@ -79,7 +81,9 @@ export class LangfuseService {
     const startedAt = Date.now();
 
     try {
-      const completion = await aiProvider.complete(input.messages);
+      const completion = await aiProvider.complete(input.messages, {
+        json: input.json,
+      });
       const latencyMs = Date.now() - startedAt;
       const traceId = await this.recordGeneration({
         name: input.name,

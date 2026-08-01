@@ -542,6 +542,7 @@ export class EvaluationService {
           messages: extractMessages,
           instructions: input.version.instructions,
           document: input.document,
+          json: true,
           metadata: {
             runtimeId: input.runtimeId,
             runtimeVersionId: input.version.id,
@@ -553,8 +554,9 @@ export class EvaluationService {
       );
 
       return {
-        structuredData: parseExtractionResponse(extract.completion.content)
-          .structuredData,
+        structuredData: parseExtractionResponse(extract.completion.content, {
+          traceId: extract.traceId,
+        }).structuredData,
         traceId: extract.traceId,
       };
     } catch (error) {
