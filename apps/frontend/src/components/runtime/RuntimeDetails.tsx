@@ -164,6 +164,7 @@ export function RuntimeDetails({
             key={runtime.id}
             runtimeId={runtime.id}
             activeVersionId={runtime.activeVersionId}
+            onGoToVersions={() => setTab('versions')}
           />
         ) : null}
       </div>
