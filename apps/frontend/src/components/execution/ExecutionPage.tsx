@@ -19,6 +19,7 @@ import { ExecutionHistory } from './ExecutionHistory'
 type ExecutionPageProps = {
   runtimeId: string
   activeVersionId: string | null
+  onGoToVersions?: () => void
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -62,6 +63,7 @@ function progressLabel(detail: ExecutionDetail | null, pollingId: string | null)
 export function ExecutionPage({
   runtimeId,
   activeVersionId,
+  onGoToVersions,
 }: ExecutionPageProps) {
   const [file, setFile] = useState<File | null>(null)
   const [executions, setExecutions] = useState<ExecutionSummary[]>([])
@@ -209,16 +211,11 @@ export function ExecutionPage({
       <ExecutionForm
         file={file}
         submitting={submitting}
-        disabled={!activeVersionId}
+        canUpload={Boolean(activeVersionId)}
         onFileChange={setFile}
         onSubmit={() => void handleExecute()}
+        onGoToVersions={onGoToVersions}
       />
-
-      {!activeVersionId ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          Publish a runtime version before running production executions.
-        </p>
-      ) : null}
 
       {statusMessage ? (
         <p className="text-sm text-muted-foreground" role="status">

@@ -1,6 +1,6 @@
 # Memory: Production Executions
 
-Last updated: 2026-08-01
+Last updated: 2026-08-05
 
 ## Purpose
 
@@ -58,11 +58,12 @@ Parsing runs **outside** the AI orchestrator; Runtime only ever sees extracted t
 - Docker: `tesseract-ocr`, `tesseract-ocr-data-eng`, `poppler-utils` in `docker/backend.Dockerfile` + `docker/app.Dockerfile`
 
 ### Frontend
-- Tab: `RuntimeDetails` → Executions
+- Tab: `RuntimeDetails` → Executions (`onGoToVersions` jumps to Versions tab)
 - Page: `components/execution/ExecutionPage.tsx` — upload then polls until settled
-- Pieces: `ExecutionForm` (PDF), `ExecutionHistory`, `ExecutionCard`, `ExecutionDetails` (+ `parserError`), `CheckpointTimeline`, `ResumeButton`
+- Pieces: `ExecutionForm` (publish gate + PDF), `PdfUploadZone`, `ExecutionHistory`, `ExecutionCard`, `ExecutionDetails` (+ `parserError`), `CheckpointTimeline`, `ResumeButton`
 - API: `services/execution.service.ts` — FormData create; `pollExecution` unchanged
 - Validation: `components/execution/pdf-upload.ts` (PDF only, 1 file, ≤ 2 MB)
+- Upload UI: locked when no `activeVersionId` (badge + amber banner + “Go to Versions”); ready state is green. Click-to-upload zone / Execute stay clickable when blocked and toast + inline error explain why; press feedback via `active:scale`.
 
 ## APIs
 
